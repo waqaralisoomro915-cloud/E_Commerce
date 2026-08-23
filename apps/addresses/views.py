@@ -1,5 +1,18 @@
-from django.shortcuts import render
-from django.http import HttpResponse
-def addresses(request):
-    return HttpResponse("Hello, world. You're at the address book.")
+from rest_framework import viewsets
+from rest_framework.permissions import IsAuthenticated
+
+from .serializers import AddressSerializer
+from .models import Address
+from ..accounts.models import User
+
+class AddressViewSet(viewsets.ModelViewSet):
+    queryset = Address.objects.all()
+    serializer_class = AddressSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        return Address.objects.filter(user=self.request.user)
+
+    def perform_create(self, serializer):
+        serializer.save(user=self.request.user)
 
