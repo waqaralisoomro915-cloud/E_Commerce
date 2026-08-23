@@ -17,3 +17,10 @@ class CanViewCategory(BasePermission):
             User.Role.ADMIN,
             User.Role.CUSTOMER,
         ]
+class CanViewProduct(BasePermission):
+    def has_permission(self, request, view):
+        return (request.user.is_authenticated
+                and request.user.role in[
+                    User.Role.ADMIN,
+                    User.Role.CUSTOMER,
+                ])
