@@ -1,4 +1,5 @@
 from rest_framework.permissions import BasePermission
+from .models import User
 
 
 class IsAdmin(BasePermission):
@@ -9,3 +10,10 @@ class IsAdmin(BasePermission):
 class IsCustomer(BasePermission):
     def has_permission(self, request, view):
         return request.user.is_authenticated and request.user.role == "CUSTOMER"
+
+class CanViewCategory(BasePermission):
+    def has_permission(self, request, view):
+        return request.user.is_authenticated and request.user.role in[
+            User.Role.ADMIN,
+            User.Role.CUSTOMER,
+        ]
