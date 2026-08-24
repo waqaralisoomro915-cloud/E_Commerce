@@ -1,6 +1,13 @@
-from django.shortcuts import render
-from django.http import HttpResponse
-def payments(request):
-    return HttpResponse("Payments view")
+from rest_framework import viewsets, permissions
+from .models import Payment
+from .serializers import PaymentSerializer
 
-# Create your views here.
+class PaymentViewSet(viewsets.ModelViewSet):
+    queryset = Payment.objects.all()
+    serializer_class = PaymentSerializer
+    permission_classes = [permissions.IsAuthenticated]
+    def get_queryset(self):
+        user = self.request.user
+        if user.role =="ADMIN":
+            return Payment.objects.all()
+        return Payment.objects.filter(order__user=user)
