@@ -96,7 +96,7 @@ class OrderViewSet(viewsets.ModelViewSet):
                 user=user,
                 address=address,
                 total_amount=Decimal('0.00'),
-                status='pending'
+                status=Order.Status.PENDING
             )
 
             total_amount = Decimal('0.00')
@@ -141,4 +141,115 @@ class OrderViewSet(viewsets.ModelViewSet):
                 "order": serializer.data
             },
             status=status.HTTP_201_CREATED
+        )
+
+    @action(detail=True, methods=['patch'])
+    def update_status(self, request, pk=None):
+        order = self.get_object()
+
+        if request.user.role != 'ADMIN':
+            return Response(
+                {"detail": "Only admins can update order status."},
+                status=status.HTTP_403_FORBIDDEN
+            )
+
+        new_status = request.data.get('status')
+
+        if new_status not in Order.Status.values:
+            return Response(
+                {"detail": "Invalid order status."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        allowed_transitions = {
+            Order.Status.PENDING: [
+                Order.Status.CONFIRMED,
+                Order.Status.CANCELLED,
+            ],
+
+            Order.Status.CONFIRMED: [
+                Order.Status.SHIPPED,
+                Order.Status.CANCELLED,
+            ],
+
+            Order.Status.SHIPPED: [
+                Order.Status.DELIVERED,
+            ],
+
+            Order.Status.DELIVERED: [],
+
+            Order.Status.CANCELLED: [],
+        }
+
+        if new_status not in allowed_transitions[order.status]:
+            return Response(
+                {
+                    "detail": (
+                        f"Order cannot be changed from "
+                        f"{order.status} to {new_status}."
+                    )
+                },
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        order.status = new_status
+        order.save(update_fields=['status'])
+
+        return Response(
+            {
+                "message": "Order status updated successfully.",
+                "status": order.status
+            },
+            status=status.HTTP_200_OK
+        )
+
+    @action(detail=True, methods=['post'])
+    def cancel(self, request, pk=None):
+        order = self.get_object()
+
+        # Customer can only cancel their own order
+        if request.user.role != 'ADMIN' and order.user != request.user:
+            return Response(
+                {"detail": "You can only cancel your own order."},
+                status=status.HTTP_403_FORBIDDEN
+            )
+
+        # Only these statuses can be cancelled
+        if order.status not in [
+            Order.Status.PENDING,
+            Order.Status.CONFIRMED
+        ]:
+            return Response(
+                {
+                    "detail": (
+                        f"Order cannot be cancelled because "
+                        f"its status is {order.status}."
+                    )
+                },
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        with transaction.atomic():
+
+            # Get order items and their products
+            order_items = order.items.select_related('product').all()
+
+            # Return products to stock
+            for order_item in order_items:
+                product = order_item.product
+
+                product.stock += order_item.quantity
+
+                product.save(update_fields=['stock'])
+
+            # Cancel order
+            order.status = Order.Status.CANCELLED
+            order.save(update_fields=['status'])
+
+        return Response(
+            {
+                "message": "Order cancelled successfully.",
+                "status": order.status
+            },
+            status=status.HTTP_200_OK
         )
