@@ -1,5 +1,6 @@
-from django.urls import path
+from rest_framework.routers import DefaultRouter
 from . import views
-urlpatterns = [
-    path('coupons/', views.coupons,name='coupons'),
-]
+
+router = DefaultRouter()
+router.register('coupons', views.CouponsViewSet, basename='coupons')
+urlpatterns = router.urls

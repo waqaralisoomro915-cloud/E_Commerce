@@ -1,5 +1,12 @@
-from django.shortcuts import render
-from django.http import HttpResponse
-def coupons(request):
-    return HttpResponse("this is my coupons page")
-# Create your views here.
+from rest_framework import viewsets
+from rest_framework.permissions import IsAuthenticated
+
+from .serializers import CouponsSerializer
+from .models import Coupons
+from ..accounts.permissions import IsAdmin
+
+
+class CouponsViewSet(viewsets.ModelViewSet):
+    queryset = Coupons.objects.all()
+    serializer_class = CouponsSerializer
+    permission_classes = [IsAuthenticated, IsAdmin]
